@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServiceNow Incident Management Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        body {
+            background-color: #f4f5f7;
+            margin: 0;
+            padding: 20px;
+            color: #172b4d;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #091e42;
+            border-bottom: 2px solid #ebecf0;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .required::after {
+            content: " *";
+            color: #de350b;
+        }
+
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dfe1e6;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #4c9aff;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background-color: #0052cc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0065ff;
+        }
+
+        .btn-secondary {
+            background-color: #ebecf0;
+            color: #42526e;
+        }
+
+        .btn-secondary:hover {
+            background-color: #dfe1e6;
+        }
+
+        .alert {
+            padding: 12px;
+            background-color: #de350b;
+            color: white;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Incident Request Form</h1>
+        
+        <div id="errorMessage" class="alert hidden">
+            Please fill out all mandatory fields before submitting.
+        </div>
+
+        <form id="incidentForm">
+            <!-- Incident Number (Read-only) -->
+            <div class="form-group">
+                <label for="incidentNumber">Number</label>
+                <input type="text" id="incidentNumber" value="INC0010001" readonly>
+            </div>
+
+            <!-- Caller / Requested By -->
+            <div class="form-group">
+                <label for="caller" class="required">Caller</label>
+                <input type="text" id="caller" placeholder="Enter user name..." required>
+            </div>
+
+            <!-- Category -->
+            <div class="form-group">
+                <label for="category" class="required">Category</label>
+                <select id="category" onchange="handleCategoryChange()" required>
+                    <option value="">-- Select Category --</option>
+                    <option value="inquiry">Inquiry / Help</option>
+                    <option value="software">Software</option>
+                    <option value="hardware">Hardware</option>
+                    <option value="network">Network</option>
+                </select>
+            </div>
+
+            <!-- Subcategory (Conditional UI Policy simulation) -->
+            <div class="form-group hidden" id="subcategoryGroup">
+                <label for="subcategory">Subcategory</label>
+                <select id="subcategory">
+                    <option value="">-- Select Subcategory --</option>
+                    <option value="email">Email Issues</option>
+                    <option value="vpn">VPN / Access</option>
+                    <option value="os">Operating System</option>
+                </select>
+            </div>
+
+            <!-- Impact & Urgency -->
+            <div class="form-group">
+                <label for="impact">Impact</label>
+                <select id="impact" onchange="calculatePriority()">
+                    <option value="3">3 - Low</option>
+                    <option value="2">2 - Medium</option>
+                    <option value="1">1 - High</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="urgency">Urgency</label>
+                <select id="urgency" onchange="calculatePriority()">
+                    <option value="3">3 - Low</option>
+                    <option value="2">2 - Medium</option>
+                    <option value="1">1 - High</option>
+                </select>
+            </div>
+
+            <!-- Priority (Calculated via Script) -->
+            <div class="form-group">
+                <label for="priority">Priority</label>
+                <input type="text" id="priority" value="5 - Planning" readonly>
+            </div>
+
+            <!-- Short Description -->
+            <div class="form-group">
+                <label for="shortDescription" class="required">Short Description</label>
+                <input type="text" id="shortDescription" placeholder="Brief summary of the issue" required>
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+                <label for="description">Detailed Description</label>
+                <textarea id="description" rows="4" placeholder="Provide full details..."></textarea>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="btn-group">
+                <button type="submit" class="btn-primary">Submit Incident</button>
+                <button type="button" class="btn-secondary" onclick="resetForm()">Reset</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Client Script: Toggle Subcategory visibility based on Category selection
+        function handleCategoryChange() {
+            const category = document.getElementById('category').value;
+            const subcategoryGroup = document.getElementById('subcategoryGroup');
+
+            if (category === 'software' || category === 'network') {
+                subcategoryGroup.classList.remove('hidden');
+            } else {
+                subcategoryGroup.classList.add('hidden');
+            }
+        }
+
+        // Client Script: Calculate Priority based on Impact and Urgency
+        function calculatePriority() {
+            const impact = parseInt(document.getElementById('impact').value);
+            const urgency = parseInt(document.getElementById('urgency').value);
+            const priorityInput = document.getElementById('priority');
+
+            const score = impact + urgency;
+
+            if (score === 2) {
+                priorityInput.value = '1 - Critical';
+            } else if (score === 3) {
+                priorityInput.value = '2 - High';
+            } else if (score === 4) {
+                priorityInput.value = '3 - Moderate';
+            } else if (score === 5) {
+                priorityInput.value = '4 - Low';
+            } else {
+                priorityInput.value = '5 - Planning';
+            }
+        }
+
+        // Form Validation & Submission Handler
+        document.getElementById('incidentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const caller = document.getElementById('caller').value;
+            const category = document.getElementById('category').value;
+            const shortDesc = document.getElementById('shortDescription').value;
+            const errorMsg = document.getElementById('errorMessage');
+
+            if (!caller || !category || !shortDesc) {
+                errorMsg.classList.remove('hidden');
+            } else {
+                errorMsg.classList.add('hidden');
+                alert('Incident submitted successfully!');
+            }
+        });
+
+        function resetForm() {
+            document.getElementById('incidentForm').reset();
+            document.getElementById('subcategoryGroup').classList.add('hidden');
+            calculatePriority();
+        }
+    </script>
+</body>
+</html>
